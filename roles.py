@@ -30,8 +30,8 @@ class Roles:
     AUDITOR    = RoleType(0x08, 'Auditor',      0x21)
     ADMIN      = RoleType(0x10, 'Adminitrator', 0xff)
     SYSTEMUSER = RoleType(0x20, 'System User',  0xf5)
-    RESERVED_0 = RoleType(0x40, 'RESERVED',     0x00)
-    RESERVED_1 = RoleType(0x80, 'RESERVED',     0x00)
+    RESERVED_A = RoleType(0x40, 'RESERVED',     0x00)
+    RESERVED_B = RoleType(0x80, 'RESERVED',     0x00)
 
     def __init__(self) -> None:
         self._roles = 0x00
