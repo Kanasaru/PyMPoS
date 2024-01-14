@@ -1,25 +1,81 @@
 import csv
+from dataclasses import dataclass
+
 import openpyxl
 
 
 class DataReaderReadError(Exception):
-    """Custom exception class for data reading errors."""
-    pass
+    """
+    Custom exception raised when there is an error while reading an Excel file.
+    
+    Attributes:
+        message (str): A description of the error.
+    """
+    def __init__(self, message):
+        """
+        Initialize a DataReaderReadError instance.
+
+        Args:
+            message (str): A description of the error.
+        """
+        self.message = message
+        super().__init__(self.message)
+
+
+@dataclass
+class DataReaderConfig:
+    """
+    Configuration class for DataReader.
+
+    Attributes:
+        lineskip (int): Number of lines to skip at the beginning.
+        encoding (str): The file encoding to use (default is 'utf-8').
+        newline (str): The newline character to use (default is '').
+        delimiter (str): The field delimiter (default is ';').
+        quotechar (str): The character used to quote fields (default is '"').
+        escapechar (str): The escape character (default is None).
+        doublequote (bool): Whether to interpret two consecutive quotechar 
+                            characters as a single quote (default is True).
+        skipinitialspace (bool): Whether to skip spaces following the 
+                                 delimiter (default is False).
+        lineterminator (str): The line terminator character (default is '\r\n').
+    """
+    lineskip: int = 0
+    encoding: str = 'utf-8'
+    newline: str = ''
+    delimiter: str = ','
+    quotechar: str = '"'
+    escapechar: str = None
+    doublequote: bool = True
+    skipinitialspace: bool = False
+    lineterminator: str = '\r\n'
 
 
 class DataReader:
-    """A class for reading data from Excel (.xlsx) and CSV (.csv) files."""
+    """
+    A class for reading data from Excel (.xlsx) and CSV (.csv) files.
+    """
+    def __init__(self, 
+                 config: DataReaderConfig=DataReaderConfig()) -> None:
+        """
+        Initialize a DataReader instance.
 
-    def __init__(self) -> None:
-        """Initialize a DataReader instance."""
+        Args:
+            config (DataReaderConfig): An instance of DataReaderConfig with 
+                                       custom configuration settings 
+                                       (default is an empty configuration).
+        """
         self.header = []
         self.data = []
         self.err_data = []
         self._data_types = []
         self._data_type_error = False
+        self._config = config
 
     def _reset(self):
-        """Reset all instance variables to their initial state."""
+        """
+        Reset all instance variables to their initial state.
+        """
         self.header = []
         self.data = []
         self.err_data = []
@@ -47,13 +103,12 @@ class DataReader:
         
         return value
 
-    def read_excel(self, file_path: str, skip_rows: int=0):
+    def read_excel(self, file_path: str):
         """
         Read data from an Excel file.
 
         Args:
             file_path (str): The path to the Excel file.
-            skip_rows (int): The number of rows to skip at the beginning of the worksheet.
 
         Raises:
             DataReaderReadError: If there is an error while importing the file.
@@ -70,7 +125,7 @@ class DataReader:
         worksheet = workbook.active
 
         for i, row in enumerate(worksheet.iter_rows(values_only=True)):
-            if i < skip_rows:
+            if i < self._config.lineskip:
                 continue
             elif not self.header:
                 for cell_value in row:
@@ -95,7 +150,8 @@ class DataReader:
                 
                 data_set = []
                 error = False
-                for value, data_type in zip(data_values, self._data_types):
+                for value, data_type in zip(data_values, 
+                                            self._data_types):
                     if value is None:
                         data_set.append(None)
                         continue
@@ -105,21 +161,19 @@ class DataReader:
 
                     data_set.append(value)
                 if error:
-                    self.err_data.append([tuple(data_values), 'Wrong data type.'])
+                    self.err_data.append([tuple(data_values), 
+                                          'Wrong data type.'])
                 else:
                     self.data.append(data_set)
 
         workbook.close()
 
-    def read_csv(self, file_path: str, skip_rows: int=0, encoding='utf-8', newline=''):
+    def read_csv(self, file_path: str):
         """
         Read data from a CSV file.
 
         Args:
             file_path (str): The path to the CSV file.
-            skip_rows (int): The number of rows to skip at the beginning of the CSV file.
-            encoding (str): The encoding of the CSV file (default is 'utf-8').
-            newline (str): The newline character (default is '').
         
         Raises:
             DataReaderReadError: If there is an error while importing the file.
@@ -127,17 +181,19 @@ class DataReader:
         self._reset()
         
         try:
-            with open(file_path, 'r', newline=newline, encoding=encoding) as csvfile:
+            with open(file_path, 'r', 
+                      newline=self._config.newline, 
+                      encoding=self._config.encoding) as csvfile:
                 reader = csv.reader(csvfile, 
-                                    delimiter = ';',
-                                    quotechar = '"',
-                                    escapechar = None,
-                                    doublequote = True,
-                                    skipinitialspace = False,
-                                    lineterminator = '\r\n')
+                                    delimiter = self._config.delimiter,
+                                    quotechar = self._config.quotechar,
+                                    escapechar = self._config.escapechar,
+                                    doublequote = self._config.doublequote,
+                                    skipinitialspace = self._config.skipinitialspace,
+                                    lineterminator = self._config.lineterminator)
                 
                 for i, row in enumerate(reader):
-                    if i < skip_rows:
+                    if i < self._config.lineskip:
                         continue
                     elif not self.header:
                         self.header = row
@@ -175,12 +231,28 @@ class DataReader:
             raise DataReaderReadError("Error while importing the file.", e)
 
 
-my_reader = DataReader()
-my_reader.read_excel('person_data.xlsx', 2)
-print(my_reader.header)
-print(my_reader.data)
-print(my_reader.err_data)
-my_reader.read_csv('person_data.csv', 2)
-print(my_reader.header)
-print(my_reader.data)
-print(my_reader.err_data)
+if __name__ == "__main__":
+    # create a configuration for the DataReader
+    my_reader_config = DataReaderConfig(lineskip=2)
+
+    # create a DataReader
+    my_reader = DataReader(my_reader_config)
+
+    # read excel file
+    my_reader.read_excel('person_data.xlsx')
+
+    # output results
+    print(my_reader.header)
+    print(my_reader.data)
+    print(my_reader.err_data)
+
+    # change DataReader configuration
+    my_reader_config.delimiter = ';'
+
+    # read csv file
+    my_reader.read_csv('person_data.csv')
+    
+    # output results
+    print(my_reader.header)
+    print(my_reader.data)
+    print(my_reader.err_data)
